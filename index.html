@@ -152,3 +152,161 @@
         {name:"Ecclesiastes", api:"ecc"}, {name:"Song of Solomon", api:"sng"}, {name:"Isaiah", api:"isa"}, {name:"Jeremiah", api:"jer"}, {name:"Lamentations", api:"lam"},
         {name:"Ezekiel", api:"ezk"}, {name:"Daniel", api:"dan"}, {name:"Hosea", api:"hos"}, {name:"Joel", api:"jol"}, {name:"Amos", api:"amo"},
         {name:"Obadiah", api:"oba"}, {name:"Jonah", api:"jon"}, {name:"Micah", api:"mic"}, {name:"Nahum", api:"nam"}, {name:"Habakkuk", api:"hab"},
+        {name:"Zephaniah", api:"zep"}, {name:"Haggai", api:"hag"}, {name:"Zechariah", api:"zec"}, {name:"Malachi", api:"mal"}, {name:"Matthew", api:"mat"},
+        {name:"Mark", api:"mrk"}, {name:"Luke", api:"luk"}, {name:"John", api:"jhn"}, {name:"Acts", api:"act"}, {name:"Romans", api:"rom"},
+        {name:"1 Corinthians", api:"1co"}, {name:"2 Corinthians", api:"2co"}, {name:"Galatians", api:"gal"}, {name:"Ephesians", api:"eph"}, {name:"Philippians", api:"php"},
+        {name:"Colossians", api:"col"}, {name:"1 Thessalonians", api:"1th"}, {name:"2 Thessalonians", api:"2th"}, {name:"1 Timothy", api:"1ti"}, {name:"2 Timothy", api:"2ti"},
+        {name:"Titus", api:"tit"}, {name:"Philemon", api:"phm"}, {name:"Hebrews", api:"heb"}, {name:"James", api:"jas"}, {name:"1 Peter", api:"1pe"},
+        {name:"2 Peter", api:"2pe"}, {name:"1 John", api:"1jn"}, {name:"2 John", api:"2jn"}, {name:"3 John", api:"3jn"}, {name:"Jude", api:"jud"}, {name:"Revelation", api:"rev"}
+];
+let currentVerseText = "";
+let versePhrases = [];
+let activePhraseIdx = 0;
+let counts = { read: 0, recite: 0 };
+let gameTargetWords = [];
+let gameUserWords = [];
+let gameScrambledIndexed = [];
+// Initialize Select Dropdown
+const bookSelect = document.getElementById('bible-book');
+books.forEach(b => {
+let opt = document.createElement('option');
+opt.value = b.api; opt.textContent = b.name;
+bookSelect.appendChild(opt);
+});
+window.addEventListener('DOMContentLoaded', () => {
+const cached = localStorage.getItem('noKeySavedState');
+if (cached) {
+const state = JSON.parse(cached);
+document.getElementById('bible-version').value = state.version;
+document.getElementById('bible-book').value = state.book;
+document.getElementById('bible-chapter').value = state.chapter;
+document.getElementById('bible-verse').value = state.verse;
+} else {
+// Default setup values
+document.getElementById('bible-book').value = "jhn";
+}
+loadActiveVerse();
+});
+document.getElementById('fetch-btn').addEventListener('click', loadActiveVerse);
+async function loadActiveVerse() {
+const vState = {
+version: document.getElementById('bible-version').value,
+book: document.getElementById('bible-book').value,
+chapter: document.getElementById('bible-chapter').value,
+verse: document.getElementById('bible-verse').value
+};
+localStorage.setItem('noKeySavedState', JSON.stringify(vState));
+const selectedBookObj = books.find(b => b.api === vState.book);
+const friendlyRef = ${selectedBookObj.name} ${vState.chapter}:${vState.verse};
+document.getElementById('card-ref-front').textContent = friendlyRef;
+document.getElementById('card-text-back').innerHTML = "Contacting public open-source mirror...";
+try {
+// Fetching dynamically from a public keyless open api architecture
+const res = await fetch(https://bible-api.com{vState.book}+${vState.chapter}:${vState.verse}?translation=${vState.version.replace('en-', '')});
+const data = await res.json();
+currentVerseText = data.text ? data.text.replace(/\s+/g, ' ').trim() : "Reference coordinates invalid.";
+document.getElementById('card-text-back').innerHTML = currentVerseText;
+initializeTools(friendlyRef);
+} catch (e) {
+document.getElementById('card-text-back').innerHTML = "Network connection issue loading open-source mirrors.";
+}
+}
+function initializeTools(reference) {
+counts = { read: 0, recite: 0 };
+document.getElementById('read-count').textContent = "0";
+document.getElementById('recite-count').textContent = "0";
+document.getElementById('read-box').classList.remove('done');
+document.getElementById('recite-box').classList.remove('done');
+const letterArray = currentVerseText.split(/\s+/).map(w => {
+let match = w.match(/[a-zA-Z0-9]/);
+return match ? match.toUpperCase() : '';
+});
+document.getElementById('letters-view').textContent = (${reference}) ${letterArray.join(' ')};
+versePhrases = currentVerseText.split(/[,.;:]+/).map(p => p.trim()).filter(p => p.length > 0);
+activePhraseIdx = 0;
+updatePhraseDisplay();
+gameTargetWords = currentVerseText.split(/\s+/).filter(w => w.length > 0);
+resetGame();
+}
+function toggleCard() { document.getElementById('flashcard').classList.toggle('flipped'); }
+function switchTab(e, tabId) {
+document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+document.querySelectorAll('.tool-content').forEach(c => c.classList.remove('active'));
+e.target.classList.add('active');
+document.getElementById(tabId).classList.add('active');
+}
+function incrementCounter(type, goal) {
+if (counts[type] < goal) {
+counts[type]++;
+document.getElementById(${type}-count).textContent = counts[type];
+if (counts[type] === goal) {
+document.getElementById(${type}-box).classList.add('done');
+}
+}
+}
+document.onkeydown = function(e) {
+if (e.code === "Space") {
+e.preventDefault();
+toggleCard();
+}
+};
+function updatePhraseDisplay() {
+if(versePhrases.length === 0) return;
+const visiblePhrases = versePhrases.slice(0, activePhraseIdx + 1);
+document.getElementById('phrase-view').textContent = visiblePhrases.join(', ') + (activePhraseIdx < versePhrases.length - 1 ? '...' : '.');
+}
+function changePhraseStep(dir) {
+activePhraseIdx = Math.max(0, Math.min(versePhrases.length - 1, activePhraseIdx + dir));
+updatePhraseDisplay();
+}
+function speakVerse() {
+if (!currentVerseText) return;
+const utterance = new SpeechSynthesisUtterance(currentVerseText);
+window.speechSynthesis.speak(utterance);
+}
+function resetGame() {
+gameUserWords = [];
+document.getElementById('game-reconstructed').textContent = "";
+const statusMsg = document.getElementById('game-status-msg');
+statusMsg.textContent = "Click words in the correct biblical order:";
+statusMsg.style.color = "var(--text-color)";
+gameScrambledIndexed = gameTargetWords.map((word, idx) => ({ word, originalIdx: idx }));
+for (let i = gameScrambledIndexed.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1));
+[gameScrambledIndexed[i], gameScrambledIndexed[j]] = [gameScrambledIndexed[j], gameScrambledIndexed[i]];
+}
+const pool = document.getElementById('game-word-pool');
+pool.innerHTML = "";
+gameScrambledIndexed.forEach((item, displayIdx) => {
+const btn = document.createElement('button');
+btn.className = "game-word-btn";
+btn.textContent = item.word;
+btn.id = word-item-${displayIdx};
+btn.onclick = () => selectGameWord(displayIdx);
+pool.appendChild(btn);
+});
+}
+function selectGameWord(displayIdx) {
+const item = gameScrambledIndexed[displayIdx];
+const nextExpectedIdx = gameUserWords.length;
+if (item.originalIdx === nextExpectedIdx) {
+gameUserWords.push(item.word);
+document.getElementById(word-item-${displayIdx}).classList.add('used');
+document.getElementById('game-reconstructed').textContent = gameUserWords.join(" ");
+if (gameUserWords.length === gameTargetWords.length) {
+const statusMsg = document.getElementById('game-status-msg');
+statusMsg.textContent = "Verse Completed Successfully! Perfect Recall 🎉";
+statusMsg.style.color = "var(--success-color)";
+}
+} else {
+const statusMsg = document.getElementById('game-status-msg');
+statusMsg.textContent = "Incorrect Word Order! Try finding the prior sequence.";
+statusMsg.style.color = "var(--danger-color)";
+setTimeout(() => {
+if(statusMsg.style.color === "rgb(239, 68, 68)") {
+statusMsg.textContent = "Click words in the correct biblical order:";
+statusMsg.style.color = "var(--text-color)";
+}
+}, 1500);
+}
+}
