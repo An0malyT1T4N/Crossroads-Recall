@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Scripture Vault</title>
+    <link href="https://googleapis.com" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-color: #1e293b;
+            --accent-color: #3b82f6;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 20px; margin-bottom: 40px; }
+        h1 { text-align: center; font-size: 1.5rem; color: var(--accent-color); font-weight: 700; margin-bottom: 5px; }
+        .app-panel { background-color: var(--card-color); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .selector-grid { display: grid; grid-template-columns: 2fr 2fr 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        select, input, button { background-color: var(--bg-color); color: var(--text-color); border: 1px solid #334155; padding: 10px; border-radius: 6px; font-size: 0.9rem; width: 100%; outline: none; }
+        select:focus, input:focus { border-color: var(--accent-color); }
+        button { background-color: var(--accent-color); font-weight: 600; cursor: pointer; border: none; transition: background 0.2s; }
+        button:hover { background-color: #2563eb; }
+        
+        /* Flashcard Layout */
+        .flashcard-wrapper { perspective: 1000px; width: 100%; height: 200px; cursor: pointer; }
+        .flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s; border-radius: 12px; }
+        .flashcard.flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 12px; display: flex; justify-content: center; align-items: center; padding: 20px; text-align: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.2); border: 1px solid #334155; }
+        .card-front { background-color: #1e293b; color: var(--accent-color); font-size: 1.3rem; font-weight: 700; }
+        .card-back { background-color: #263449; transform: rotateY(180deg); font-size: 1rem; overflow-y: auto; line-height: 1.5; }
+
+        /* Practice Tools Section */
+        .tool-tabs { display: flex; gap: 5px; margin-bottom: 15px; background: var(--bg-color); padding: 4px; border-radius: 8px; overflow-x: auto; }
+        .tab-btn { background: transparent; border: none; padding: 8px 12px; font-size: 0.8rem; font-weight: 500; color: var(--text-muted); cursor: pointer; border-radius: 6px; white-space: nowrap; }
+        .tab-btn.active { background: var(--card-color); color: var(--text-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .tool-content { display: none; min-height: 140px; }
+        .tool-content.active { display: block; }
+
+        /* Repetition Counters */
+        .counter-layout { display: flex; justify-content: space-around; gap: 20px; text-align: center; }
+        .counter-box { background: var(--bg-color); padding: 15px; border-radius: 10px; flex: 1; border: 1px solid #334155; cursor: pointer; }
+        .counter-box.done { border-color: var(--success-color); background: #064e3b; }
+        .counter-num { font-size: 2rem; font-weight: 700; margin-bottom: 5px; }
+
+        /* Phrase Engine */
+        .phrase-controls { display: flex; gap: 10px; margin-top: 15px; }
+        .phrase-display { font-size: 1.1rem; text-align: center; font-style: italic; line-height: 1.6; min-height: 60px; display: flex; align-items: center; justify-content: center; }
+
+        /* Hint Text formatting */
+        .hint-text { letter-spacing: 2px; font-size: 1.2rem; font-weight: 600; text-align: center; line-height: 1.8; color: var(--accent-color); }
+        .audio-btn { background: #475569; margin-top: 10px; }
+
+        /* Game System Style */
+        .game-status { font-size: 1rem; margin-bottom: 10px; text-align: center; min-height: 24px; font-weight: 600; }
+        .word-pool { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
+        .game-word-btn { background-color: #334155; border: 1px solid #475569; color: var(--text-color); padding: 6px 12px; border-radius: 20px; font-size: 0.9rem; cursor: pointer; width: auto; transition: all 0.1s ease; }
+        .game-word-btn:hover { background-color: var(--accent-color); }
+        .game-word-btn.used { opacity: 0.2; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Scripture Memory Vault</h1>
+    
+    <!-- Entry Panel -->
+    <div class="app-panel">
+        <div class="selector-grid">
+            <select id="bible-version">
+                <option value="en-kjv">KJV</option>
+                <option value="en-web">WEB</option>
+                <option value="en-asv">ASV</option>
+            </select>
+            <select id="bible-book"></select>
+            <input type="number" id="bible-chapter" value="3" min="1">
+            <input type="number" id="bible-verse" value="16" min="1">
+        </div>
+        <button id="fetch-btn">Load & Synchronize Verse</button>
+    </div>
+
+    <!-- Active Display Text -->
+    <div class="app-panel">
+        <div class="flashcard-wrapper" onclick="toggleCard()">
+            <div class="flashcard" id="flashcard">
+                <div class="card-face card-front" id="card-ref-front">Passage</div>
+                <div class="card-face card-back" id="card-text-back">Click load to populate text...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Memorization Methods Suite -->
+    <div class="app-panel">
+        <div class="tool-tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'tab-tally')">10-Read/Recite</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tab-phrase')">Phrase Chain</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tab-letters')">First Letters</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tab-game')">Scramble Game</button>
+        </div>
+
+        <!-- Tab 1: 10x Repetition -->
+        <div id="tab-tally" class="tool-content active">
+            <div class="counter-layout">
+                <div class="counter-box" id="read-box" onclick="incrementCounter('read', 10)">
+                    <div class="text-muted" style="font-size:0.75rem; text-transform: uppercase;">Read Out Loud</div>
+                    <div class="counter-num" id="read-count">0</div>
+                    <div style="font-size:0.75rem;">Goal: 10x</div>
+                </div>
+                <div class="counter-box" id="recite-box" onclick="incrementCounter('recite', 10)">
+                    <div class="text-muted" style="font-size:0.75rem; text-transform: uppercase;">Recite Hidden</div>
+                    <div class="counter-num" id="recite-count">0</div>
+                    <div style="font-size:0.75rem;">Goal: 10x</div>
+                </div>
+            </div>
+            <button class="audio-btn" onclick="speakVerse()">🔊 Listen to Audio Sample</button>
+        </div>
+
+        <!-- Tab 2: Phrase-by-Phrase Chain Loader -->
+        <div id="tab-phrase" class="tool-content">
+            <div class="phrase-display" id="phrase-view">Click expand to start building sequence</div>
+            <div class="phrase-controls">
+                <button onclick="changePhraseStep(-1)">◀ Back</button>
+                <button onclick="changePhraseStep(1)">Expand Chain ▶</button>
+            </div>
+        </div>
+
+        <!-- Tab 3: First Letters Mind Hack -->
+        <div id="tab-letters" class="tool-content">
+            <div class="hint-text" id="letters-view">...</div>
+        </div>
+
+        <!-- Tab 4: Word Scramble Memory Game -->
+        <div id="tab-game" class="tool-content">
+            <div class="game-status" id="game-status-msg">Click words in the correct biblical order:</div>
+            <div class="phrase-display" id="game-reconstructed" style="font-size:1rem; min-height:40px; border-bottom:1px solid #334155; margin-bottom:10px;"></div>
+            <div class="word-pool" id="game-word-pool"></div>
+            <button onclick="resetGame()" style="margin-top:15px; background-color:#475569;">Reset Puzzle</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const books = [
+        {name:"Genesis", api:"john"}, {name:"Exodus", api:"exo"}, {name:"Leviticus", api:"lev"}, {name:"Numbers", api:"num"}, {name:"Deuteronomy", api:"deu"},
+        {name:"Joshua", api:"jos"}, {name:"Judges", api:"jdg"}, {name:"Ruth", api:"rut"}, {name:"1 Samuel", api:"1sa"}, {name:"2 Samuel", api:"2sa"},
+        {name:"1 Kings", api:"1ki"}, {name:"2 Kings", api:"2ki"}, {name:"1 Chronicles", api:"1ch"}, {name:"2 Chronicles", api:"2ch"}, {name:"Ezra", api:"ezr"},
+        {name:"Nehemiah", api:"neh"}, {name:"Esther", api:"est"}, {name:"Job", api:"job"}, {name:"Psalms", api:"psa"}, {name:"Proverbs", api:"pro"},
+        {name:"Ecclesiastes", api:"ecc"}, {name:"Song of Solomon", api:"sng"}, {name:"Isaiah", api:"isa"}, {name:"Jeremiah", api:"jer"}, {name:"Lamentations", api:"lam"},
+        {name:"Ezekiel", api:"ezk"}, {name:"Daniel", api:"dan"}, {name:"Hosea", api:"hos"}, {name:"Joel", api:"jol"}, {name:"Amos", api:"amo"},
+        {name:"Obadiah", api:"oba"}, {name:"Jonah", api:"jon"}, {name:"Micah", api:"mic"}, {name:"Nahum", api:"nam"}, {name:"Habakkuk", api:"hab"},
